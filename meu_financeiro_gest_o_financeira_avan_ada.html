@@ -1,0 +1,1450 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meu Financeiro Pro</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            800: '#166534',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.4); border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(156, 163, 175, 0.7); }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 min-h-full flex flex-col font-sans antialiased transition-colors duration-200">
+
+    <!-- Auth / Lock Screen Overlay -->
+    <div id="lockScreenOverlay" class="fixed inset-0 z-50 bg-gray-900/90 backdrop-blur-md flex items-center justify-center p-4 transition-all duration-300">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 sm:p-8 max-w-md w-full border border-gray-100 dark:border-gray-700">
+            <div class="text-center mb-6">
+                <div class="w-16 h-16 bg-brand-100 dark:bg-brand-900/50 text-brand-600 dark:text-brand-400 rounded-full flex items-center justify-center mx-auto mb-3 shadow-inner">
+                    <i data-lucide="shield-check" class="w-8 h-8"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-900 dark:text-white" id="lockTitle">Meu Financeiro Pro</h2>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1" id="lockDesc">Selecione seu perfil ou insira sua senha</p>
+            </div>
+
+            <!-- Profile Selector -->
+            <div id="profileSelectContainer" class="mb-4">
+                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Perfil Ativo</label>
+                <div class="flex gap-2">
+                    <select id="profileSelect" class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+                        <!-- Populated by JS -->
+                    </select>
+                    <button onclick="createNewProfilePrompt()" title="Criar novo perfil" class="p-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl border border-gray-300 dark:border-gray-600 transition">
+                        <i data-lucide="user-plus" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- PIN/Passcode Area -->
+            <div id="pinContainer" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Senha / PIN de Segurança</label>
+                    <input type="password" id="pinInput" placeholder="••••" maxlength="10" class="w-full text-center tracking-widest text-2xl bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl py-3 focus:ring-2 focus:ring-brand-500 outline-none">
+                </div>
+                <button onclick="unlockApp()" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-medium py-3 rounded-xl shadow-lg shadow-brand-600/30 transition duration-150 active:scale-[0.98]">
+                    Entrar no App
+                </button>
+            </div>
+
+            <!-- Warning/Info -->
+            <div id="storageWarning" class="hidden mt-4 p-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800/50 rounded-xl flex items-start gap-2.5 text-xs text-amber-800 dark:text-amber-300">
+                <i data-lucide="alert-triangle" class="w-4 h-4 shrink-0 mt-0.5"></i>
+                <span>Navegação privada detectada. Os dados serão mantidos na sessão atual, faça backups frequentes!</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Navigation Bar -->
+    <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-30 transition-colors">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                
+                <!-- Logo & Brand -->
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-brand-600 text-white rounded-xl flex items-center justify-center font-bold shadow-md shadow-brand-600/20">
+                        <i data-lucide="wallet" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h1 class="font-bold text-lg leading-tight">Meu Financeiro</h1>
+                            <span class="text-[10px] font-semibold bg-brand-100 dark:bg-brand-900/50 text-brand-700 dark:text-brand-300 px-1.5 py-0.5 rounded-md">PRO</span>
+                        </div>
+                        <p class="text-xs text-gray-500 dark:text-gray-400" id="currentProfileLabel">Perfil: Padrão</p>
+                    </div>
+                </div>
+
+                <!-- Right Actions Header -->
+                <div class="flex items-center gap-2 sm:gap-3">
+                    <button onclick="togglePrivacyMode()" id="btnPrivacy" title="Ocultar/Mostrar Valores" class="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition">
+                        <i data-lucide="eye" id="iconPrivacy" class="w-5 h-5"></i>
+                    </button>
+                    <button onclick="toggleDarkMode()" title="Alternar Tema" class="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition">
+                        <i data-lucide="moon" id="iconTheme" class="w-5 h-5"></i>
+                    </button>
+                    <button onclick="lockApp()" title="Bloquear App" class="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition">
+                        <i data-lucide="lock" class="w-5 h-5"></i>
+                    </button>
+                    <button onclick="openModal('modalSettings')" title="Ajustes" class="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition">
+                        <i data-lucide="settings" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="bg-gray-50/50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-700/50 overflow-x-auto scrollbar-none">
+            <div class="max-w-7xl mx-auto px-4 flex gap-1 sm:gap-2">
+                <button onclick="switchTab('resumo')" id="tab-resumo" class="nav-tab active-tab">
+                    <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+                    <span>Resumo</span>
+                </button>
+                <button onclick="switchTab('lancamentos')" id="tab-lancamentos" class="nav-tab">
+                    <i data-lucide="list-plus" class="w-4 h-4"></i>
+                    <span>Lançamentos</span>
+                </button>
+                <button onclick="switchTab('projecao')" id="tab-projecao" class="nav-tab">
+                    <i data-lucide="trending-up" class="w-4 h-4"></i>
+                    <span>Projeção e Inteligência</span>
+                </button>
+                <button onclick="switchTab('orcamento')" id="tab-orcamento" class="nav-tab">
+                    <i data-lucide="pie-chart" class="w-4 h-4"></i>
+                    <span>Orçamento 50/30/20</span>
+                </button>
+                <button onclick="switchTab('metas')" id="tab-metas" class="nav-tab">
+                    <i data-lucide="target" class="w-4 h-4"></i>
+                    <span>Metas</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container Content -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+
+        <!-- ALERTA DE NOTIFICAÇÕES SIMULADAS / LEMBRETES -->
+        <div id="alertBannerContainer" class="space-y-2"></div>
+
+        <!-- TAB: RESUMO -->
+        <section id="section-resumo" class="tab-content space-y-6">
+            <!-- Top Controls Month Picker -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="calendar" class="w-5 h-5 text-brand-600"></i>
+                    <span class="font-medium text-sm text-gray-500 dark:text-gray-400">Mês de Referência:</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="changeMonth(-1)" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition">
+                        <i data-lucide="chevron-left" class="w-5 h-5"></i>
+                    </button>
+                    <input type="month" id="selectedMonth" onchange="renderApp()" class="bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl px-3 py-1.5 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500">
+                    <button onclick="changeMonth(1)" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition">
+                        <i data-lucide="chevron-right" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- KPI Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Receitas -->
+                <div class="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm hover:shadow-md transition">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Entradas</p>
+                            <h3 class="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1 privacy-mask" id="kpiReceitas">R$ 0,00</h3>
+                        </div>
+                        <div class="p-3 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-xl">
+                            <i data-lucide="arrow-up-right" class="w-6 h-6"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Despesas -->
+                <div class="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm hover:shadow-md transition">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Saídas</p>
+                            <h3 class="text-2xl font-bold text-rose-600 dark:text-rose-400 mt-1 privacy-mask" id="kpiDespesas">R$ 0,00</h3>
+                        </div>
+                        <div class="p-3 bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 rounded-xl">
+                            <i data-lucide="arrow-down-left" class="w-6 h-6"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Saldo / Sobra -->
+                <div class="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm hover:shadow-md transition">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Sobra do Mês</p>
+                            <h3 class="text-2xl font-bold text-gray-900 dark:text-white mt-1 privacy-mask" id="kpiSaldo">R$ 0,00</h3>
+                        </div>
+                        <div class="p-3 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-xl">
+                            <i data-lucide="scale" class="w-6 h-6"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Taxa de Poupança -->
+                <div class="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm hover:shadow-md transition">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Taxa de Poupança</p>
+                            <h3 class="text-2xl font-bold text-brand-600 dark:text-brand-400 mt-1" id="kpiPoupanca">0%</h3>
+                        </div>
+                        <div class="p-3 bg-brand-100 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400 rounded-xl">
+                            <i data-lucide="piggy-bank" class="w-6 h-6"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Section (Evolução & Categoria) -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Evolution Chart -->
+                <div class="lg:col-span-2 bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                            <i data-lucide="bar-chart-2" class="w-5 h-5 text-brand-600"></i>
+                            Evolução Patrimonial & Sobra Mensal
+                        </h3>
+                    </div>
+                    <div class="relative h-64 sm:h-72">
+                        <canvas id="chartEvolution"></canvas>
+                    </div>
+                </div>
+
+                <!-- Category Donut Chart -->
+                <div class="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                            <i data-lucide="pie-chart" class="w-5 h-5 text-brand-600"></i>
+                            Gastos por Categoria
+                        </h3>
+                    </div>
+                    <div class="relative h-64 sm:h-72 flex items-center justify-center">
+                        <canvas id="chartCategories"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Transactions Mini Table -->
+            <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm p-5">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                        <i data-lucide="history" class="w-5 h-5 text-brand-600"></i>
+                        Últimos Lançamentos
+                    </h3>
+                    <button onclick="switchTab('lancamentos')" class="text-xs font-semibold text-brand-600 dark:text-brand-400 hover:underline">Ver Todos →</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="text-xs uppercase bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400">
+                            <tr>
+                                <th class="p-3 rounded-l-xl">Data</th>
+                                <th class="p-3">Descrição</th>
+                                <th class="p-3">Categoria</th>
+                                <th class="p-3 text-right rounded-r-xl">Valor</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recentTransactionsList" class="divide-y divide-gray-100 dark:divide-gray-700">
+                            <!-- Populated JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB: LANÇAMENTOS -->
+        <section id="section-lancamentos" class="tab-content space-y-6 hidden">
+            
+            <!-- Quick Add Bar & Advanced Filters -->
+            <div class="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm space-y-4">
+                
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-100 dark:border-gray-700 pb-4">
+                    <div>
+                        <h2 class="text-lg font-bold text-gray-900 dark:text-white">Gerenciador de Lançamentos</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Adicione, busque e filtre suas receitas e despesas</p>
+                    </div>
+                    <button onclick="openModal('modalLancamento')" class="w-full sm:w-auto bg-brand-600 hover:bg-brand-700 text-white font-medium px-4 py-2.5 rounded-xl shadow-lg shadow-brand-600/30 transition flex items-center justify-center gap-2">
+                        <i data-lucide="plus-circle" class="w-5 h-5"></i>
+                        <span>Novo Lançamento</span>
+                    </button>
+                </div>
+
+                <!-- Filters Grid -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                    <!-- Search Input -->
+                    <div class="relative lg:col-span-2">
+                        <i data-lucide="search" class="w-4 h-4 absolute left-3 top-3 text-gray-400"></i>
+                        <input type="text" id="filterSearch" oninput="renderLancamentos()" placeholder="Buscar por descrição..." class="w-full pl-9 pr-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-500">
+                    </div>
+
+                    <!-- Period Filter -->
+                    <div>
+                        <select id="filterPeriod" onchange="renderLancamentos()" class="w-full py-2 px-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-500">
+                            <option value="month">Mês Atual Selecionado</option>
+                            <option value="30">Últimos 30 Dias</option>
+                            <option value="60">Últimos 60 Dias</option>
+                            <option value="90">Últimos 90 Dias</option>
+                            <option value="all">Todo o Histórico</option>
+                        </select>
+                    </div>
+
+                    <!-- Category Filter -->
+                    <div>
+                        <select id="filterCategory" onchange="renderLancamentos()" class="w-full py-2 px-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-500">
+                            <option value="all">Todas as Categorias</option>
+                        </select>
+                    </div>
+
+                    <!-- Sort Order -->
+                    <div>
+                        <select id="filterSort" onchange="renderLancamentos()" class="w-full py-2 px-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-500">
+                            <option value="date-desc">Data (Mais Recente)</option>
+                            <option value="date-asc">Data (Mais Antigo)</option>
+                            <option value="value-desc">Valor (Maior)</option>
+                            <option value="value-asc">Valor (Menor)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Full Transactions List Table -->
+            <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="text-xs uppercase bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+                            <tr>
+                                <th class="p-4">Data</th>
+                                <th class="p-4">Descrição</th>
+                                <th class="p-4">Categoria</th>
+                                <th class="p-4">Pagamento</th>
+                                <th class="p-4 text-right">Valor</th>
+                                <th class="p-4 text-center">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="fullTransactionsList" class="divide-y divide-gray-100 dark:divide-gray-700">
+                            <!-- Populated JS -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="emptyListState" class="hidden p-8 text-center text-gray-500 dark:text-gray-400 space-y-2">
+                    <i data-lucide="inbox" class="w-10 h-10 mx-auto text-gray-300"></i>
+                    <p class="font-medium">Nenhum lançamento encontrado para os filtros selecionados.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB: PROJEÇÃO & INTELIGÊNCIA -->
+        <section id="section-projecao" class="tab-content space-y-6 hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Forecast Card -->
+                <div class="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm space-y-4">
+                    <div class="flex items-center gap-3 border-b border-gray-100 dark:border-gray-700 pb-4">
+                        <div class="p-3 bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 rounded-xl">
+                            <i data-lucide="sparkles" class="w-6 h-6"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-900 dark:text-white">Projeção Inteligente para Fim de Mês</h3>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Estimativa baseada na sua média diária e histórico de comportamento</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 py-2">
+                        <div class="p-4 bg-gray-50 dark:bg-gray-700/40 rounded-xl border border-gray-100 dark:border-gray-700">
+                            <p class="text-xs text-gray-500 uppercase font-semibold">Gasto Atual do Mês</p>
+                            <p class="text-xl font-bold text-gray-900 dark:text-white mt-1 privacy-mask" id="projActual">R$ 0,00</p>
+                        </div>
+                        <div class="p-4 bg-gray-50 dark:bg-gray-700/40 rounded-xl border border-gray-100 dark:border-gray-700">
+                            <p class="text-xs text-gray-500 uppercase font-semibold">Média Diária Atual</p>
+                            <p class="text-xl font-bold text-amber-600 dark:text-amber-400 mt-1 privacy-mask" id="projDailyAvg">R$ 0,00/dia</p>
+                        </div>
+                        <div class="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-100 dark:border-purple-800/50">
+                            <p class="text-xs text-purple-600 dark:text-purple-300 uppercase font-semibold">Estimativa Final Mês</p>
+                            <p class="text-xl font-bold text-purple-700 dark:text-purple-300 mt-1 privacy-mask" id="projEstimatedTotal">R$ 0,00</p>
+                        </div>
+                    </div>
+
+                    <!-- Progress Bar Projection vs Revenue -->
+                    <div class="space-y-2">
+                        <div class="flex justify-between text-xs font-semibold">
+                            <span class="text-gray-500">Estimativa de Comprometimento da Renda</span>
+                            <span id="projPercentageLabel" class="text-purple-600 dark:text-purple-400">0%</span>
+                        </div>
+                        <div class="w-full bg-gray-100 dark:bg-gray-700 h-3 rounded-full overflow-hidden">
+                            <div id="projProgressBar" class="bg-purple-600 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <div id="projInsightBox" class="p-4 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-xl flex items-start gap-3 text-sm text-blue-800 dark:text-blue-300">
+                        <i data-lucide="info" class="w-5 h-5 shrink-0 mt-0.5"></i>
+                        <span id="projInsightText">Carregando dados da projeção...</span>
+                    </div>
+                </div>
+
+                <!-- Categorização Automática Inteligente Config -->
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm space-y-4">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="brain-circuit" class="w-5 h-5 text-brand-600"></i>
+                        <h3 class="font-bold text-gray-900 dark:text-white">Auto-Categorização</h3>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">O sistema aprende suas palavras-chave frequentes para preencher a categoria e o meio de pagamento automaticamente ao digitar!</p>
+
+                    <div class="space-y-3" id="autoCategoryRulesList">
+                        <!-- Rules list via JS -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB: ORÇAMENTO 50/30/20 -->
+        <section id="section-orcamento" class="tab-content space-y-6 hidden">
+            <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm space-y-6">
+                <div>
+                    <h2 class="text-xl font-bold text-gray-900 dark:text-white">Método Orçamentário 50/30/20</h2>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Divida suas receitas em Necessidades Básicas (50%), Desejos Pessoais (30%) e Investimentos/Metas (20%).</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- 50% Needs -->
+                    <div class="p-5 rounded-2xl border border-amber-200 dark:border-amber-800/60 bg-amber-50/50 dark:bg-amber-900/10 space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="font-bold text-amber-800 dark:text-amber-300">50% Necessidades</span>
+                            <span class="text-xs font-semibold px-2 py-1 bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300 rounded-md">Essencial</span>
+                        </div>
+                        <p class="text-xs text-gray-500">Aluguel, Mercado, Contas Fixas, Saúde</p>
+                        <div class="text-2xl font-bold text-amber-900 dark:text-amber-200 privacy-mask" id="orc50Actual">R$ 0,00</div>
+                        <p class="text-xs text-gray-500">Meta recomendada: <span class="font-semibold privacy-mask" id="orc50Target">R$ 0,00</span></p>
+                        <div class="w-full bg-amber-200 dark:bg-amber-800/50 h-2 rounded-full overflow-hidden">
+                            <div id="orc50Bar" class="bg-amber-600 h-full transition-all" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- 30% Wants -->
+                    <div class="p-5 rounded-2xl border border-purple-200 dark:border-purple-800/60 bg-purple-50/50 dark:bg-purple-900/10 space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="font-bold text-purple-800 dark:text-purple-300">30% Desejos</span>
+                            <span class="text-xs font-semibold px-2 py-1 bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-300 rounded-md">Estilo de Vida</span>
+                        </div>
+                        <p class="text-xs text-gray-500">Lazer, Restaurantes, Viagens, Hobbies</p>
+                        <div class="text-2xl font-bold text-purple-900 dark:text-purple-200 privacy-mask" id="orc30Actual">R$ 0,00</div>
+                        <p class="text-xs text-gray-500">Meta recomendada: <span class="font-semibold privacy-mask" id="orc30Target">R$ 0,00</span></p>
+                        <div class="w-full bg-purple-200 dark:bg-purple-800/50 h-2 rounded-full overflow-hidden">
+                            <div id="orc30Bar" class="bg-purple-600 h-full transition-all" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- 20% Savings -->
+                    <div class="p-5 rounded-2xl border border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/50 dark:bg-emerald-900/10 space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="font-bold text-emerald-800 dark:text-emerald-300">20% Poupança</span>
+                            <span class="text-xs font-semibold px-2 py-1 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 rounded-md">Futuro</span>
+                        </div>
+                        <p class="text-xs text-gray-500">Reserva de Emergência, Investimentos</p>
+                        <div class="text-2xl font-bold text-emerald-900 dark:text-emerald-200 privacy-mask" id="orc20Actual">R$ 0,00</div>
+                        <p class="text-xs text-gray-500">Meta recomendada: <span class="font-semibold privacy-mask" id="orc20Target">R$ 0,00</span></p>
+                        <div class="w-full bg-emerald-200 dark:bg-emerald-800/50 h-2 rounded-full overflow-hidden">
+                            <div id="orc20Bar" class="bg-emerald-600 h-full transition-all" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB: METAS -->
+        <section id="section-metas" class="tab-content space-y-6 hidden">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h2 class="text-xl font-bold text-gray-900 dark:text-white">Metas Financeiras</h2>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Acompanhe seus objetivos de médio e longo prazo</p>
+                </div>
+                <button onclick="openModal('modalMeta')" class="bg-brand-600 hover:bg-brand-700 text-white font-medium px-4 py-2.5 rounded-xl shadow-lg shadow-brand-600/30 transition flex items-center gap-2">
+                    <i data-lucide="plus" class="w-5 h-5"></i>
+                    <span>Nova Meta</span>
+                </button>
+            </div>
+
+            <div id="goalsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Goals JS -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- MODAL: LANÇAMENTO (Com Auto-Categorização) -->
+    <div id="modalLancamento" class="fixed inset-0 z-50 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-lg w-full p-6 border border-gray-200 dark:border-gray-700 space-y-4">
+            <div class="flex justify-between items-center border-b border-gray-100 dark:border-gray-700 pb-3">
+                <h3 class="font-bold text-lg text-gray-900 dark:text-white" id="modalLancamentoTitle">Novo Lançamento</h3>
+                <button onclick="closeModal('modalLancamento')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+
+            <form id="formLancamento" onsubmit="saveLancamento(event)" class="space-y-4">
+                <input type="hidden" id="lancamentoId">
+
+                <!-- Type Selector -->
+                <div class="grid grid-cols-2 gap-2">
+                    <button type="button" id="btnTipoDespesa" onclick="setLancamentoTipo('despesa')" class="py-2.5 rounded-xl font-semibold text-sm border flex items-center justify-center gap-2 border-rose-500 bg-rose-50 dark:bg-rose-900/30 text-rose-600">
+                        <i data-lucide="arrow-down-circle" class="w-4 h-4"></i> Despesa
+                    </button>
+                    <button type="button" id="btnTipoReceita" onclick="setLancamentoTipo('receita')" class="py-2.5 rounded-xl font-semibold text-sm border flex items-center justify-center gap-2 border-gray-200 dark:border-gray-700 text-gray-500">
+                        <i data-lucide="arrow-up-circle" class="w-4 h-4"></i> Receita
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 mb-1">Valor Total (R$)</label>
+                        <input type="number" step="0.01" id="lancamentoValor" required class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 mb-1">Data</label>
+                        <input type="date" id="lancamentoData" required class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-500">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 mb-1">Descrição</label>
+                    <input type="text" id="lancamentoDescricao" oninput="handleDescriptionAutoCategory(this.value)" placeholder="ex: Uber, Supermercado, Salário" required class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-500">
+                    <span id="autoCatBadge" class="hidden text-[10px] text-purple-600 dark:text-purple-400 font-semibold mt-1 block">⚡ Categoria sugerida automaticamente!</span>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 mb-1">Categoria</label>
+                        <select id="lancamentoCategoria" required class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-500">
+                            <!-- Populated JS -->
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 mb-1">Pagamento / Conta</label>
+                        <select id="lancamentoPagamento" required class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-500">
+                            <option value="Pix / Dinheiro">Pix / Dinheiro</option>
+                            <option value="Cartão de Crédito">Cartão de Crédito</option>
+                            <option value="Cartão de Débito">Cartão de Débito</option>
+                            <option value="Boleto">Boleto</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Parcelamento -->
+                <div class="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl space-y-2 border border-gray-200 dark:border-gray-600">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-semibold text-gray-600 dark:text-gray-300">Parcelar em Vários Meses?</span>
+                        <input type="checkbox" id="lancamentoParceladoCheck" onchange="toggleParcelasInput(this.checked)" class="rounded text-brand-600 focus:ring-brand-500 w-4 h-4">
+                    </div>
+                    <div id="parcelasContainer" class="hidden grid-cols-2 gap-3 pt-2 border-t border-gray-200 dark:border-gray-600">
+                        <div>
+                            <label class="block text-[11px] text-gray-500">Nº de Parcelas</label>
+                            <input type="number" id="lancamentoParcelas" min="2" max="72" value="2" class="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm">
+                        </div>
+                        <div class="text-xs text-gray-500 flex items-center">
+                            <span>O valor total será dividido mensalmente.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-3 pt-3">
+                    <button type="button" onclick="closeModal('modalLancamento')" class="px-4 py-2 text-sm rounded-xl border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700">Cancelar</button>
+                    <button type="submit" class="px-5 py-2 text-sm bg-brand-600 hover:bg-brand-700 text-white font-medium rounded-xl shadow-md shadow-brand-600/30">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: METAS -->
+    <div id="modalMeta" class="fixed inset-0 z-50 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full p-6 border border-gray-200 dark:border-gray-700 space-y-4">
+            <div class="flex justify-between items-center border-b border-gray-100 dark:border-gray-700 pb-3">
+                <h3 class="font-bold text-lg text-gray-900 dark:text-white">Nova Meta Financeira</h3>
+                <button onclick="closeModal('modalMeta')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+
+            <form id="formMeta" onsubmit="saveMeta(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 mb-1">Título da Meta</label>
+                    <input type="text" id="metaTitulo" placeholder="ex: Reserva de Emergência, Viagem" required class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-500">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 mb-1">Valor Alvo (R$)</label>
+                        <input type="number" step="0.01" id="metaAlvo" required class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 mb-1">Valor Atual (R$)</label>
+                        <input type="number" step="0.01" id="metaAtual" value="0" required class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-500">
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-3 pt-3">
+                    <button type="button" onclick="closeModal('modalMeta')" class="px-4 py-2 text-sm rounded-xl border border-gray-300 dark:border-gray-600">Cancelar</button>
+                    <button type="submit" class="px-5 py-2 text-sm bg-brand-600 text-white font-medium rounded-xl shadow-md">Salvar Meta</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: AJUSTES & BACKUP -->
+    <div id="modalSettings" class="fixed inset-0 z-50 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-xl w-full p-6 border border-gray-200 dark:border-gray-700 space-y-6">
+            <div class="flex justify-between items-center border-b border-gray-100 dark:border-gray-700 pb-3">
+                <h3 class="font-bold text-lg text-gray-900 dark:text-white flex items-center gap-2">
+                    <i data-lucide="settings" class="w-5 h-5 text-brand-600"></i>
+                    Ajustes do Aplicativo
+                </h3>
+                <button onclick="closeModal('modalSettings')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+
+            <!-- PIN Configuration -->
+            <div class="space-y-3 p-4 bg-gray-50 dark:bg-gray-700/40 rounded-xl border border-gray-200 dark:border-gray-600">
+                <h4 class="font-semibold text-sm text-gray-900 dark:text-white flex items-center gap-2">
+                    <i data-lucide="lock" class="w-4 h-4 text-brand-600"></i> Segurança do Perfil
+                </h4>
+                <div class="flex items-center gap-3">
+                    <input type="password" id="settingNewPin" placeholder="Nova Senha/PIN" maxlength="10" class="flex-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl px-3 py-2 text-sm">
+                    <button onclick="updateProfilePin()" class="px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-xl">Salvar Senha</button>
+                </div>
+            </div>
+
+            <!-- Backup Export/Import -->
+            <div class="space-y-3 p-4 bg-gray-50 dark:bg-gray-700/40 rounded-xl border border-gray-200 dark:border-gray-600">
+                <h4 class="font-semibold text-sm text-gray-900 dark:text-white flex items-center gap-2">
+                    <i data-lucide="database" class="w-4 h-4 text-brand-600"></i> Backup & Sincronização em Texto
+                </h4>
+                <p class="text-xs text-gray-500">Copie ou cole seus dados criptografados/JSON para transferência entre dispositivos.</p>
+                <div class="flex gap-2">
+                    <button onclick="exportBackupText()" class="flex-1 py-2 border border-gray-300 dark:border-gray-600 rounded-xl text-xs font-semibold hover:bg-gray-100 dark:hover:bg-gray-600">Exportar Backup</button>
+                    <button onclick="importBackupText()" class="flex-1 py-2 border border-gray-300 dark:border-gray-600 rounded-xl text-xs font-semibold hover:bg-gray-100 dark:hover:bg-gray-600">Importar Backup</button>
+                </div>
+            </div>
+
+            <div class="flex justify-end pt-2">
+                <button onclick="closeModal('modalSettings')" class="px-5 py-2 text-sm bg-gray-200 dark:bg-gray-700 rounded-xl font-medium">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- APPLICATION JAVASCRIPT LOGIC -->
+    <script>
+        /* -------------------------------------------------------------------------- */
+        /* STATE & INITIALIZATION                                                     */
+        /* -------------------------------------------------------------------------- */
+        
+        const DEFAULT_CATEGORIES = [
+            'Alimentação', 'Moradia', 'Transporte', 'Saúde', 'Educação',
+            'Lazer', 'Investimentos', 'Salário', 'Outros'
+        ];
+
+        let state = {
+            activeProfile: 'Padrão',
+            profiles: {}, // { profileName: { pin: '', data: { lancamentos: [], metas: [], autoCatRules: {} } } }
+            privacyMode: false,
+            currentLancamentoTipo: 'despesa',
+            charts: {}
+        };
+
+        // Standard Auto-Category Initial Dictionary
+        const DEFAULT_AUTO_CAT = {
+            'uber': { cat: 'Transporte', pag: 'Cartão de Crédito' },
+            'mercado': { cat: 'Alimentação', pag: 'Pix / Dinheiro' },
+            'supermercado': { cat: 'Alimentação', pag: 'Cartão de Débito' },
+            'netflix': { cat: 'Lazer', pag: 'Cartão de Crédito' },
+            'salario': { cat: 'Salário', pag: 'Pix / Dinheiro' },
+            'farmacia': { cat: 'Saúde', pag: 'Cartão de Débito' }
+        };
+
+        window.onload = function() {
+            lucide.createIcons();
+            loadStateFromStorage();
+            setupDefaultMonth();
+            initProfileSelector();
+            checkPrivateBrowsing();
+        };
+
+        function setupDefaultMonth() {
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            document.getElementById('selectedMonth').value = `${yyyy}-${mm}`;
+        }
+
+        function checkPrivateBrowsing() {
+            try {
+                localStorage.setItem('__test', '1');
+                localStorage.removeItem('__test');
+            } catch (e) {
+                document.getElementById('storageWarning').classList.remove('hidden');
+            }
+        }
+
+        /* -------------------------------------------------------------------------- */
+        /* PROFILE & LOCK SYSTEM                                                      */
+        /* -------------------------------------------------------------------------- */
+
+        function loadStateFromStorage() {
+            const raw = localStorage.getItem('mf_pro_state');
+            if (raw) {
+                try {
+                    state.profiles = JSON.parse(raw);
+                } catch(e) {
+                    console.error("Error loading state", e);
+                }
+            }
+
+            // Ensure at least Default profile exists
+            if (!state.profiles['Padrão']) {
+                state.profiles['Padrão'] = {
+                    pin: '',
+                    data: {
+                        lancamentos: [],
+                        metas: [],
+                        autoCatRules: { ...DEFAULT_AUTO_CAT }
+                    }
+                };
+                saveStateToStorage();
+            }
+        }
+
+        function saveStateToStorage() {
+            localStorage.setItem('mf_pro_state', JSON.stringify(state.profiles));
+        }
+
+        function initProfileSelector() {
+            const select = document.getElementById('profileSelect');
+            select.innerHTML = '';
+            Object.keys(state.profiles).forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p;
+                opt.textContent = p;
+                select.appendChild(opt);
+            });
+        }
+
+        function createNewProfilePrompt() {
+            const name = prompt("Digite o nome do novo perfil:");
+            if (name && name.trim()) {
+                const cleanName = name.trim();
+                if (!state.profiles[cleanName]) {
+                    state.profiles[cleanName] = {
+                        pin: '',
+                        data: {
+                            lancamentos: [],
+                            metas: [],
+                            autoCatRules: { ...DEFAULT_AUTO_CAT }
+                        }
+                    };
+                    saveStateToStorage();
+                    initProfileSelector();
+                    document.getElementById('profileSelect').value = cleanName;
+                }
+            }
+        }
+
+        function unlockApp() {
+            const selectedProf = document.getElementById('profileSelect').value;
+            const enteredPin = document.getElementById('pinInput').value;
+            const profObj = state.profiles[selectedProf];
+
+            if (profObj.pin && profObj.pin !== enteredPin) {
+                alert("Senha incorreta!");
+                return;
+            }
+
+            state.activeProfile = selectedProf;
+            document.getElementById('currentProfileLabel').textContent = `Perfil: ${selectedProf}`;
+            document.getElementById('lockScreenOverlay').classList.add('hidden');
+            document.getElementById('pinInput').value = '';
+
+            populateCategoriesSelect();
+            renderApp();
+        }
+
+        function lockApp() {
+            document.getElementById('lockScreenOverlay').classList.remove('hidden');
+        }
+
+        function updateProfilePin() {
+            const newPin = document.getElementById('settingNewPin').value;
+            state.profiles[state.activeProfile].pin = newPin;
+            saveStateToStorage();
+            alert("Senha atualizada com sucesso!");
+            document.getElementById('settingNewPin').value = '';
+        }
+
+        function getActiveData() {
+            return state.profiles[state.activeProfile].data;
+        }
+
+        /* -------------------------------------------------------------------------- */
+        /* CATEGORIES & AUTO-CATEGORIZATION                                          */
+        /* -------------------------------------------------------------------------- */
+
+        function populateCategoriesSelect() {
+            const selectLanc = document.getElementById('lancamentoCategoria');
+            const selectFilt = document.getElementById('filterCategory');
+            
+            selectLanc.innerHTML = '';
+            selectFilt.innerHTML = '<option value="all">Todas as Categorias</option>';
+
+            DEFAULT_CATEGORIES.forEach(cat => {
+                selectLanc.innerHTML += `<option value="${cat}">${cat}</option>`;
+                selectFilt.innerHTML += `<option value="${cat}">${cat}</option>`;
+            });
+        }
+
+        function handleDescriptionAutoCategory(val) {
+            const cleanVal = val.toLowerCase().trim();
+            const rules = getActiveData().autoCatRules || DEFAULT_AUTO_CAT;
+            const badge = document.getElementById('autoCatBadge');
+
+            let matched = false;
+            for (let key in rules) {
+                if (cleanVal.includes(key)) {
+                    document.getElementById('lancamentoCategoria').value = rules[key].cat;
+                    document.getElementById('lancamentoPagamento').value = rules[key].pag;
+                    matched = true;
+                    break;
+                }
+            }
+
+            if (matched) {
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+
+        /* -------------------------------------------------------------------------- */
+        /* MAIN RENDER ROUTINE                                                       */
+        /* -------------------------------------------------------------------------- */
+
+        function renderApp() {
+            renderKPIs();
+            renderCharts();
+            renderRecentTransactions();
+            renderLancamentos();
+            renderProjecao();
+            renderOrcamento();
+            renderMetas();
+            renderAutoCategoryRules();
+            checkUpcomingBillsAlerts();
+        }
+
+        function changeMonth(delta) {
+            const monthInput = document.getElementById('selectedMonth');
+            if (!monthInput.value) return;
+            const [y, m] = monthInput.value.split('-').map(Number);
+            const d = new Date(y, m - 1 + delta, 1);
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            monthInput.value = `${yyyy}-${mm}`;
+            renderApp();
+        }
+
+        /* -------------------------------------------------------------------------- */
+        /* KPIS & RESUMO                                                              */
+        /* -------------------------------------------------------------------------- */
+
+        function renderKPIs() {
+            const selectedMonth = document.getElementById('selectedMonth').value;
+            const data = getActiveData();
+
+            const monthItems = data.lancamentos.filter(item => item.data.startsWith(selectedMonth));
+
+            let receitas = 0;
+            let despesas = 0;
+
+            monthItems.forEach(item => {
+                if (item.tipo === 'receita') receitas += item.valor;
+                else despesas += item.valor;
+            });
+
+            const saldo = receitas - despesas;
+            const poupanca = receitas > 0 ? Math.max(0, ((saldo / receitas) * 100)).toFixed(1) : 0;
+
+            document.getElementById('kpiReceitas').textContent = formatCurrency(receitas);
+            document.getElementById('kpiDespesas').textContent = formatCurrency(despesas);
+            document.getElementById('kpiSaldo').textContent = formatCurrency(saldo);
+            document.getElementById('kpiPoupanca').textContent = `${poupanca}%`;
+        }
+
+        function renderRecentTransactions() {
+            const tbody = document.getElementById('recentTransactionsList');
+            const data = getActiveData();
+            const sorted = [...data.lancamentos].sort((a,b) => new Date(b.data) - new Date(a.data)).slice(0, 5);
+
+            tbody.innerHTML = '';
+            sorted.forEach(item => {
+                const isRec = item.tipo === 'receita';
+                tbody.innerHTML += `
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition">
+                        <td class="p-3 text-xs text-gray-500">${formatDate(item.data)}</td>
+                        <td class="p-3 font-medium text-gray-900 dark:text-white">${item.descricao}</td>
+                        <td class="p-3"><span class="px-2 py-0.5 text-xs rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">${item.categoria}</span></td>
+                        <td class="p-3 text-right font-bold ${isRec ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'} privacy-mask">
+                            ${isRec ? '+' : '-'} ${formatCurrency(item.valor)}
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        /* -------------------------------------------------------------------------- */
+        /* CHARTS (EVOLUTION & CATEGORIES)                                            */
+        /* -------------------------------------------------------------------------- */
+
+        function renderCharts() {
+            const data = getActiveData();
+            const selectedMonth = document.getElementById('selectedMonth').value;
+
+            // 1. Evolution Chart (Last 6 months)
+            const monthsList = getLastMonthsList(6);
+            const revenues = [];
+            const expenses = [];
+
+            monthsList.forEach(mKey => {
+                let r = 0, e = 0;
+                data.lancamentos.filter(i => i.data.startsWith(mKey)).forEach(i => {
+                    if (i.tipo === 'receita') r += i.valor;
+                    else e += i.valor;
+                });
+                revenues.push(r);
+                expenses.push(e);
+            });
+
+            const ctxEvol = document.getElementById('chartEvolution').getContext('2d');
+            if (state.charts.evolution) state.charts.evolution.destroy();
+
+            state.charts.evolution = new Chart(ctxEvol, {
+                type: 'bar',
+                data: {
+                    labels: monthsList.map(m => formatMonthLabel(m)),
+                    datasets: [
+                        { label: 'Entradas', data: revenues, backgroundColor: '#22c55e', borderRadius: 6 },
+                        { label: 'Saídas', data: expenses, backgroundColor: '#f43f5e', borderRadius: 6 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+
+            // 2. Category Donut Chart
+            const currentMonthItems = data.lancamentos.filter(i => i.data.startsWith(selectedMonth) && i.tipo === 'despesa');
+            const catMap = {};
+            currentMonthItems.forEach(i => {
+                catMap[i.categoria] = (catMap[i.categoria] || 0) + i.valor;
+            });
+
+            const catLabels = Object.keys(catMap);
+            const catValues = Object.values(catMap);
+
+            const ctxCat = document.getElementById('chartCategories').getContext('2d');
+            if (state.charts.categories) state.charts.categories.destroy();
+
+            state.charts.categories = new Chart(ctxCat, {
+                type: 'doughnut',
+                data: {
+                    labels: catLabels.length ? catLabels : ['Sem Gastos'],
+                    datasets: [{
+                        data: catValues.length ? catValues : [1],
+                        backgroundColor: ['#f59e0b', '#3b82f6', '#ec4899', '#8b5cf6', '#10b981', '#64748b', '#06b6d4']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
+        }
+
+        /* -------------------------------------------------------------------------- */
+        /* LANÇAMENTOS TABLE & ADVANCED FILTERS                                       */
+        /* -------------------------------------------------------------------------- */
+
+        function renderLancamentos() {
+            const tbody = document.getElementById('fullTransactionsList');
+            const emptyState = document.getElementById('emptyListState');
+            const data = getActiveData();
+
+            const search = document.getElementById('filterSearch').value.toLowerCase();
+            const period = document.getElementById('filterPeriod').value;
+            const cat = document.getElementById('filterCategory').value;
+            const sort = document.getElementById('filterSort').value;
+            const selectedMonth = document.getElementById('selectedMonth').value;
+
+            let filtered = [...data.lancamentos];
+
+            // Period Filter
+            if (period === 'month') {
+                filtered = filtered.filter(i => i.data.startsWith(selectedMonth));
+            } else if (period !== 'all') {
+                const days = parseInt(period);
+                const cutoff = new Date();
+                cutoff.setDate(cutoff.getDate() - days);
+                filtered = filtered.filter(i => new Date(i.data) >= cutoff);
+            }
+
+            // Search
+            if (search) {
+                filtered = filtered.filter(i => i.descricao.toLowerCase().includes(search));
+            }
+
+            // Category
+            if (cat !== 'all') {
+                filtered = filtered.filter(i => i.categoria === cat);
+            }
+
+            // Sort
+            filtered.sort((a, b) => {
+                if (sort === 'date-desc') return new Date(b.data) - new Date(a.data);
+                if (sort === 'date-asc') return new Date(a.data) - new Date(b.data);
+                if (sort === 'value-desc') return b.valor - a.valor;
+                if (sort === 'value-asc') return a.valor - b.valor;
+            });
+
+            tbody.innerHTML = '';
+            if (filtered.length === 0) {
+                emptyState.classList.remove('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+                filtered.forEach(item => {
+                    const isRec = item.tipo === 'receita';
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition">
+                            <td class="p-4 text-xs text-gray-500">${formatDate(item.data)}</td>
+                            <td class="p-4 font-semibold text-gray-900 dark:text-white">${item.descricao}</td>
+                            <td class="p-4"><span class="px-2.5 py-1 text-xs rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-medium">${item.categoria}</span></td>
+                            <td class="p-4 text-xs text-gray-500">${item.pagamento || 'Pix'}</td>
+                            <td class="p-4 text-right font-bold ${isRec ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'} privacy-mask">
+                                ${isRec ? '+' : '-'} ${formatCurrency(item.valor)}
+                            </td>
+                            <td class="p-4 text-center">
+                                <button onclick="deleteLancamento('${item.id}')" class="p-1.5 text-gray-400 hover:text-rose-600 transition"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+            lucide.createIcons();
+        }
+
+        /* -------------------------------------------------------------------------- */
+        /* PROJEÇÃO INTELIGENTE PARA FIM DE MÊS                                       */
+        /* -------------------------------------------------------------------------- */
+
+        function renderProjecao() {
+            const selectedMonth = document.getElementById('selectedMonth').value;
+            const data = getActiveData();
+
+            const [year, month] = selectedMonth.split('-').map(Number);
+            const daysInMonth = new Date(year, month, 0).getDate();
+            
+            const today = new Date();
+            let currentDay = daysInMonth;
+            if (today.getFullYear() === year && (today.getMonth() + 1) === month) {
+                currentDay = today.getDate();
+            }
+
+            const monthItems = data.lancamentos.filter(i => i.data.startsWith(selectedMonth));
+            let totalDespesas = 0;
+            let totalReceitas = 0;
+
+            monthItems.forEach(i => {
+                if (i.tipo === 'despesa') totalDespesas += i.valor;
+                else totalReceitas += i.valor;
+            });
+
+            const dailyAvg = currentDay > 0 ? (totalDespesas / currentDay) : 0;
+            const projectedExpenses = dailyAvg * daysInMonth;
+
+            document.getElementById('projActual').textContent = formatCurrency(totalDespesas);
+            document.getElementById('projDailyAvg').textContent = `${formatCurrency(dailyAvg)}/dia`;
+            document.getElementById('projEstimatedTotal').textContent = formatCurrency(projectedExpenses);
+
+            const ratio = totalReceitas > 0 ? (projectedExpenses / totalReceitas) * 100 : 0;
+            document.getElementById('projPercentageLabel').textContent = `${ratio.toFixed(1)}% da renda`;
+            document.getElementById('projProgressBar').style.width = `${Math.min(100, ratio)}%`;
+
+            const insightBox = document.getElementById('projInsightText');
+            if (totalReceitas === 0) {
+                insightBox.textContent = "Cadastre suas receitas do mês para ver uma análise completa da projeção de comprometimento de renda.";
+            } else if (ratio > 100) {
+                insightBox.textContent = `Atenção: Na velocidade atual de gastos, você fechará o mês estourando o orçamento em ${(ratio - 100).toFixed(1)}%!`;
+            } else {
+                insightBox.textContent = `Excelente! Você está projetado para terminar o mês economizando cerca de ${formatCurrency(totalReceitas - projectedExpenses)}.`;
+            }
+        }
+
+        /* -------------------------------------------------------------------------- */
+        /* ORÇAMENTO 50/30/20                                                        */
+        /* -------------------------------------------------------------------------- */
+
+        function renderOrcamento() {
+            const selectedMonth = document.getElementById('selectedMonth').value;
+            const data = getActiveData();
+
+            const monthItems = data.lancamentos.filter(i => i.data.startsWith(selectedMonth));
+            let receitaTotal = 0;
+            monthItems.filter(i => i.tipo === 'receita').forEach(i => receitaTotal += i.valor);
+
+            const target50 = receitaTotal * 0.5;
+            const target30 = receitaTotal * 0.3;
+            const target20 = receitaTotal * 0.2;
+
+            // Simplified mapping for demo
+            let actual50 = 0, actual30 = 0, actual20 = 0;
+
+            monthItems.filter(i => i.tipo === 'despesa').forEach(i => {
+                if (['Moradia', 'Alimentação', 'Transporte', 'Saúde', 'Educação'].includes(i.categoria)) {
+                    actual50 += i.valor;
+                } else if (['Investimentos'].includes(i.categoria)) {
+                    actual20 += i.valor;
+                } else {
+                    actual30 += i.valor;
+                }
+            });
+
+            document.getElementById('orc50Actual').textContent = formatCurrency(actual50);
+            document.getElementById('orc50Target').textContent = formatCurrency(target50);
+            document.getElementById('orc50Bar').style.width = `${target50 > 0 ? Math.min(100, (actual50/target50)*100) : 0}%`;
+
+            document.getElementById('orc30Actual').textContent = formatCurrency(actual30);
+            document.getElementById('orc30Target').textContent = formatCurrency(target30);
+            document.getElementById('orc30Bar').style.width = `${target30 > 0 ? Math.min(100, (actual30/target30)*100) : 0}%`;
+
+            document.getElementById('orc20Actual').textContent = formatCurrency(actual20);
+            document.getElementById('orc20Target').textContent = formatCurrency(target20);
+            document.getElementById('orc20Bar').style.width = `${target20 > 0 ? Math.min(100, (actual20/target20)*100) : 0}%`;
+        }
+
+        /* -------------------------------------------------------------------------- */
+        /* METAS                                                                      */
+        /* -------------------------------------------------------------------------- */
+
+        function renderMetas() {
+            const grid = document.getElementById('goalsGrid');
+            const data = getActiveData();
+
+            grid.innerHTML = '';
+            data.metas.forEach(m => {
+                const pct = Math.min(100, ((m.atual / m.alvo) * 100)).toFixed(1);
+                grid.innerHTML += `
+                    <div class="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm space-y-3">
+                        <div class="flex justify-between items-start">
+                            <h4 class="font-bold text-gray-900 dark:text-white">${m.titulo}</h4>
+                            <button onclick="deleteMeta('${m.id}')" class="text-gray-400 hover:text-rose-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                        </div>
+                        <div class="flex justify-between text-xs text-gray-500">
+                            <span>Progresso</span>
+                            <span class="font-bold text-brand-600">${pct}%</span>
+                        </div>
+                        <div class="w-full bg-gray-100 dark:bg-gray-700 h-2.5 rounded-full overflow-hidden">
+                            <div class="bg-brand-600 h-full transition-all" style="width: ${pct}%"></div>
+                        </div>
+                        <div class="flex justify-between items-center text-sm pt-2">
+                            <span class="text-xs text-gray-500">Acumulado: <strong class="text-gray-900 dark:text-white privacy-mask">${formatCurrency(m.atual)}</strong></span>
+                            <span class="text-xs text-gray-500">Alvo: <strong class="privacy-mask">${formatCurrency(m.alvo)}</strong></span>
+                        </div>
+                    </div>
+                `;
+            });
+            lucide.createIcons();
+        }
+
+        function saveMeta(e) {
+            e.preventDefault();
+            const data = getActiveData();
+            data.metas.push({
+                id: Date.now().toString(),
+                titulo: document.getElementById('metaTitulo').value,
+                alvo: parseFloat(document.getElementById('metaAlvo').value),
+                atual: parseFloat(document.getElementById('metaAtual').value)
+            });
+            saveStateToStorage();
+            closeModal('modalMeta');
+            renderMetas();
+        }
+
+        function deleteMeta(id) {
+            const data = getActiveData();
+            data.metas = data.metas.filter(m => m.id !== id);
+            saveStateToStorage();
+            renderMetas();
+        }
+
+        /* -------------------------------------------------------------------------- */
+        /* NOTIFICAÇÕES SIMULADAS / LEMBRETES                                         */
+        /* -------------------------------------------------------------------------- */
+
+        function checkUpcomingBillsAlerts() {
+            const container = document.getElementById('alertBannerContainer');
+            container.innerHTML = '';
+
+            const selectedMonth = document.getElementById('selectedMonth').value;
+            const data = getActiveData();
+
+            // Simulate alert if despesas exceed receitas in selected month
+            let r = 0, d = 0;
+            data.lancamentos.filter(i => i.data.startsWith(selectedMonth)).forEach(i => {
+                if (i.tipo === 'receita') r += i.valor;
+                else d += i.valor;
+            });
+
+            if (r > 0 && d > r) {
+                container.innerHTML = `
+                    <div class="p-4 bg-rose-50 dark:bg-rose-900/30 border border-rose-200 dark:border-rose-800 rounded-2xl flex items-center gap-3 text-sm text-rose-800 dark:text-rose-300">
+                        <i data-lucide="alert-circle" class="w-5 h-5 shrink-0"></i>
+                        <span><strong>Alerta de Orçamento:</strong> Suas despesas ultrapassaram suas receitas neste mês em ${formatCurrency(d - r)}!</span>
+                    </div>
+                `;
+                lucide.createIcons();
+            }
+        }
+
+        /* -------------------------------------------------------------------------- */
+        /* FORMS & ACTIONS                                                            */
+        /* -------------------------------------------------------------------------- */
+
+        function setLancamentoTipo(tipo) {
+            state.currentLancamentoTipo = tipo;
+            const btnDesp = document.getElementById('btnTipoDespesa');
+            const btnRec = document.getElementById('btnTipoReceita');
+
+            if (tipo === 'despesa') {
+                btnDesp.className = "py-2.5 rounded-xl font-semibold text-sm border flex items-center justify-center gap-2 border-rose-500 bg-rose-50 dark:bg-rose-900/30 text-rose-600";
+                btnRec.className = "py-2.5 rounded-xl font-semibold text-sm border flex items-center justify-center gap-2 border-gray-200 dark:border-gray-700 text-gray-500";
+            } else {
+                btnRec.className = "py-2.5 rounded-xl font-semibold text-sm border flex items-center justify-center gap-2 border-emerald-500 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600";
+                btnDesp.className = "py-2.5 rounded-xl font-semibold text-sm border flex items-center justify-center gap-2 border-gray-200 dark:border-gray-700 text-gray-500";
+            }
+        }
+
+        function toggleParcelasInput(checked) {
+            const container = document.getElementById('parcelasContainer');
+            if (checked) container.classList.remove('hidden');
+            else container.classList.add('hidden');
+        }
+
+        function saveLancamento(e) {
+            e.preventDefault();
+            const data = getActiveData();
+
+            const desc = document.getElementById('lancamentoDescricao').value;
+            const totalVal = parseFloat(document.getElementById('lancamentoValor').value);
+            const dateVal = document.getElementById('lancamentoData').value;
+            const cat = document.getElementById('lancamentoCategoria').value;
+            const pag = document.getElementById('lancamentoPagamento').value;
+            const isParcelado = document.getElementById('lancamentoParceladoCheck').checked;
+            const numParcelas = parseInt(document.getElementById('lancamentoParcelas').value) || 1;
+
+            if (isParcelado && numParcelas > 1 && state.currentLancamentoTipo === 'despesa') {
+                const valorParcela = totalVal / numParcelas;
+                const startDate = new Date(dateVal + 'T00:00:00');
+
+                for (let i = 0; i < numParcelas; i++) {
+                    const nextDate = new Date(startDate);
+                    nextDate.setMonth(nextDate.getMonth() + i);
+                    const yyyy = nextDate.getFullYear();
+                    const mm = String(nextDate.getMonth() + 1).padStart(2, '0');
+                    const dd = String(nextDate.getDate()).padStart(2, '0');
+
+                    data.lancamentos.push({
+                        id: `${Date.now()}-${i}`,
+                        tipo: state.currentLancamentoTipo,
+                        valor: valorParcela,
+                        data: `${yyyy}-${mm}-${dd}`,
+                        descricao: `${desc} (${i+1}/${numParcelas})`,
+                        categoria: cat,
+                        pagamento: pag
+                    });
+                }
+            } else {
+                data.lancamentos.push({
+                    id: Date.now().toString(),
+                    tipo: state.currentLancamentoTipo,
+                    valor: totalVal,
+                    data: dateVal,
+                    descricao: desc,
+                    categoria: cat,
+                    pagamento: pag
+                });
+            }
+
+            // Train Auto-Category Keyword automatically
+            const keyword = desc.toLowerCase().trim().split(' ')[0];
+            if (keyword.length > 2) {
+                data.autoCatRules = data.autoCatRules || { ...DEFAULT_AUTO_CAT };
+                data.autoCatRules[keyword] = { cat, pag };
+            }
+
+            saveStateToStorage();
+            closeModal('modalLancamento');
+            renderApp();
+        }
+
+        function deleteLancamento(id) {
+            const data = getActiveData();
+            data.lancamentos = data.lancamentos.filter(i => i.id !== id);
+            saveStateToStorage();
+            renderApp();
+        }
+
+        function renderAutoCategoryRules() {
+            const container = document.getElementById('autoCategoryRulesList');
+            const rules = getActiveData().autoCatRules || DEFAULT_AUTO_CAT;
+
+            container.innerHTML = '';
+            Object.keys(rules).slice(0, 5).forEach(k => {
+                container.innerHTML += `
+                    <div class="flex justify-between items-center text-xs p-2.5 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-100 dark:border-gray-700">
+                        <span class="font-semibold text-gray-700 dark:text-gray-300">"${k}"</span>
+                        <span class="text-gray-500">→ ${rules[k].cat}</span>
+                    </div>
+                `;
+            });
+        }
+
+        /* -------------------------------------------------------------------------- */
+        /* BACKUP & EXPORT                                                            */
+        /* -------------------------------------------------------------------------- */
+
+        function exportBackupText() {
+            const jsonStr = JSON.stringify(state.profiles);
+            navigator.clipboard.writeText(jsonStr);
+            alert("Backup copiado para a área de transferência com sucesso!");
+        }
+
+        function importBackupText() {
+            const input = prompt("Cole o código de backup em formato JSON aqui:");
+            if (input) {
+                try {
+                    const parsed = JSON.parse(input);
+                    state.profiles = parsed;
+                    saveStateToStorage();
+                    initProfileSelector();
+                    renderApp();
+                    alert("Dados restaurados com sucesso!");
+                } catch(e) {
+                    alert("Código de backup inválido.");
+                }
+            }
+        }
+
+        /* -------------------------------------------------------------------------- */
+        /* UTILS & UI HELPER FUNCTIONS                                                */
+        /* -------------------------------------------------------------------------- */
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active-tab'));
+
+            document.getElementById(`section-${tabId}`).classList.remove('hidden');
+            document.getElementById(`tab-${tabId}`).classList.add('active-tab');
+        }
+
+        function openModal(id) {
+            document.getElementById(id).classList.remove('hidden');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+
+        function togglePrivacyMode() {
+            state.privacyMode = !state.privacyMode;
+            document.querySelectorAll('.privacy-mask').forEach(el => {
+                if (state.privacyMode) el.classList.add('blur-sm', 'select-none');
+                else el.classList.remove('blur-sm', 'select-none');
+            });
+        }
+
+        function toggleDarkMode() {
+            document.documentElement.classList.toggle('dark');
+        }
+
+        function formatCurrency(val) {
+            return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const [y, m, d] = dateStr.split('-');
+            return `${d}/${m}/${y}`;
+        }
+
+        function getLastMonthsList(count) {
+            const list = [];
+            const d = new Date();
+            for (let i = count - 1; i >= 0; i--) {
+                const temp = new Date(d.getFullYear(), d.getMonth() - i, 1);
+                const yyyy = temp.getFullYear();
+                const mm = String(temp.getMonth() + 1).padStart(2, '0');
+                list.push(`${yyyy}-${mm}`);
+            }
+            return list;
+        }
+
+        function formatMonthLabel(mKey) {
+            const [y, m] = mKey.split('-');
+            const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+            return `${months[parseInt(m)-1]}/${y.slice(2)}`;
+        }
+    </script>
+
+    <!-- TAB CSS STYLES -->
+    <style>
+        .nav-tab {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #6b7280;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .dark .nav-tab { color: #9ca3af; }
+        .nav-tab:hover { color: #16a34a; }
+        .nav-tab.active-tab {
+            color: #16a34a;
+            border-bottom-color: #16a34a;
+            font-weight: 600;
+        }
+    </style>
+</body>
+</html>
